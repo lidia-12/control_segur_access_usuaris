@@ -5,45 +5,72 @@ import mysql.connector
 
 app = Flask(__name__)
 
-@app.route('/procesar_datos', methods=['POST'])
-def procesar_datos():
+def registrar_log(numero_rfid, acceso):
     try:
-        # Estableix la connexió a la base de dades utilitzant els paràmetres especificats
+        # Estableix la connexió amb la base de dades
         db = mysql.connector.connect(
             host="*",
             user="*",
             password="*",
             database="*"
         )
+        cursor = db.cursor()
+        
+        # Inserta un nou registre de log amb la data i hora actual, el número RFID i l'estat d'accés
+        query = "INSERT INTO logs (data_hora, num_targeta_logs, acces) VALUES (NOW(), %s, %s)"
+        # Converteix el valor booleà en un enter (True -> 1, False -> 0) per a la compatibilitat amb la base de dades
+        cursor.execute(query, (numero_rfid, int(acceso)))
+        db.commit()
+    except Exception as e:
+        print(f"Error al registrar log: {e}")
+    finally:
+        # Tanca el cursor i la connexió a la base de dades
+        if cursor is not None:
+            cursor.close()
+        if db is not None:
+            db.close()
 
-        # Obtenir el valor del camp 'numero_rfid' de la sol·licitud POST
-        numero_rfid = request.form['numero_rfid']
-
-        # Verificar si el número RFID conté només dígits utilitzant una expressió regular
+@app.route('/procesar_datos', methods=['POST'])
+def procesar_datos():
+    numero_rfid = request.form.get('numero_rfid', '')
+    try:
+        # Verifica si el número RFID conté només dígits
         if not re.match("^\d+$", numero_rfid):
+            registrar_log(numero_rfid, False)  # Registra un log indicant que l'accés ha estat denegat
             return jsonify(False)
 
-        # Crear un cursor per a executar consultes SQL
+        # Estableix la connexió amb la base de dades
+        db = mysql.connector.connect(
+            host="*",
+            user="*",
+            password="*",
+            database="*"
+        )
         cursor = db.cursor()
-
-        # Executar una consulta SQL per obtenir dades de la taula 'targeta' amb el número RFID proporcionat
+        
+        # Executa una consulta SQL per comprovar si el número RFID és vàlid
         cursor.execute("SELECT * FROM targeta WHERE num_targeta = %s", (numero_rfid,))
         resultados = cursor.fetchall()
 
-        # Assegurar-se de tancar el cursor i la connexió a la base de dades
-        cursor.close()
-        db.close()
-
-        # Verificar si s'han trobat resultats
         if resultados:
-            return jsonify(True)
+            registrar_log(numero_rfid, True)  # Registra un log indicant que l'accés ha estat concedit
+            resultado = True
         else:
-            return jsonify(False)
+            registrar_log(numero_rfid, False)  # Registra un log indicant que l'accés ha estat denegat
+            resultado = False
 
     except Exception as e:
-        # En cas de qualsevol error, considerar-ho com a fallit i retornar False
-        return jsonify(False)
+        registrar_log(numero_rfid, False)  # Registra un log indicant que l'accés ha estat denegat en cas d'error
+        resultado = False
+    finally:
+        # Tanca el cursor i la connexió a la base de dades
+        if cursor is not None:
+            cursor.close()
+        if db is not None:
+            db.close()
+
+    return jsonify(resultado)
 
 if __name__ == '__main__':
-    # Iniciar l'aplicació Flask i escoltar a totes les adreces disponibles a través del port 5000
+    # Inicia l'aplicació Flask i escolta a totes les adreces disponibles a través del port 5000
     app.run(host='0.0.0.0', debug=True)
