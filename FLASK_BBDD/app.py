@@ -1,44 +1,49 @@
 #!/bin/env python3
-import re  # Importem el mòdul per a les expressions regulars
-from flask import Flask, request, jsonify  # Importem els mòduls Flask per a l'aplicació web i jsonify per a generar respostes JSON
-import mysql.connector  # Importem el mòdul per a la connexió amb MySQL
+import re
+from flask import Flask, request, jsonify
+import mysql.connector
 
-app = Flask(__name__)  # Inicialitzem l'aplicació Flask
+app = Flask(__name__)
 
-@app.route('/procesar_datos', methods=['POST'])  # Definim una ruta per a rebre les dades i processar-les mitjançant una sol·licitud POST
+@app.route('/procesar_datos', methods=['POST'])
 def procesar_datos():
     try:
-        # Establim la connexió a la base de dades dins de la funció
+        # Estableix la connexió a la base de dades utilitzant els paràmetres especificats
         db = mysql.connector.connect(
-            host="*",  # Indiquem l'amfitrió de la base de dades
-            user="*",  # Especificem l'usuari per a la connexió
-            password="*",  # Indiquem la contrasenya de l'usuari
-            database="*"  # Especificem la base de dades a la qual connectar-nos
+            host="*",
+            user="*",
+            password="*",
+            database="*"
         )
 
-        numero_rfid = request.form['numero_rfid']  # Obtenim el número RFID enviat a través del formulari
+        # Obtenir el valor del camp 'numero_rfid' de la sol·licitud POST
+        numero_rfid = request.form['numero_rfid']
 
-        # Verifiquem si el número RFID conté només dígits utilitzant una expressió regular
+        # Verificar si el número RFID conté només dígits utilitzant una expressió regular
         if not re.match("^\d+$", numero_rfid):
-            return jsonify(False)  # Si el número RFID no conté només dígits, retornem un missatge d'error
+            return jsonify(False)
 
-        cursor = db.cursor()  # Creem un cursor per interactuar amb la base de dades
-        cursor.execute("SELECT * FROM targeta WHERE num_targeta = %s", (numero_rfid,))  # Executem una consulta SQL per comprovar si el número RFID existeix a la base de dades
-        resultados = cursor.fetchall()  # Obtenim els resultats de la consulta
+        # Crear un cursor per a executar consultes SQL
+        cursor = db.cursor()
 
-        # Ens assegurem de tancar el cursor i la connexió a la base de dades
+        # Executar una consulta SQL per obtenir dades de la taula 'targeta' amb el número RFID proporcionat
+        cursor.execute("SELECT * FROM targeta WHERE num_targeta = %s", (numero_rfid,))
+        resultados = cursor.fetchall()
+
+        # Assegurar-se de tancar el cursor i la connexió a la base de dades
         cursor.close()
         db.close()
 
-        # Verifiquem si s'han trobat resultats a la consulta
+        # Verificar si s'han trobat resultats
         if resultados:
-            return jsonify(True)  # Si s'han trobat resultats, retornem True indicant que el número RFID és vàlid
+            return jsonify(True)
         else:
-            return jsonify(False)  # Si no s'han trobat resultats, retornem False indicant que el número RFID no és vàlid
+            return jsonify(False)
 
     except Exception as e:
-        # En cas d'error, retornem False indicant que el processament ha fallat
+        # En cas de qualsevol error, considerar-ho com a fallit i retornar False
         return jsonify(False)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)  # Iniciem l'aplicació Flask i l'escoltem a totes les interfícies, activant el mode de depuració
+    # Iniciar l'aplicació Flask i escoltar a totes les adreces disponibles a través del port 5000
+    app.run(host='0.0.0.0', debug=True)
