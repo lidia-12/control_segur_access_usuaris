@@ -16,33 +16,32 @@ def registrar_log(numero_rfid, acceso):
             database="*"
         )
         cursor = db.cursor()
+        # Defineix la consulta SQL per inserir un nou registre de log
         query = "INSERT INTO logs (data_hora, num_targeta_logs, acces) VALUES (NOW(), %s, %s)"
+        # Executa la consulta amb els valors proporcionats i guarda els canvis
         cursor.execute(query, (numero_rfid, int(acceso)))
         db.commit()
     except mysql.connector.IntegrityError as err:
-        # Maneig d'errors d'integritat de la base de dades
-        if err.errno == errorcode.ER_NO_REFERENCED_ROW_2:
-            print(f"Error en registrar el log: No hi ha referència per a la targeta {numero_rfid}.")
-        else:
-            print(f"Error d'integritat en registrar el log: {err}")
+        # Gestiona els errors d'integritat de la base de dades
+        print(f"Error en registrar el log: {err}")
     except Exception as e:
-        # Maneig d'altres errors
+        # Gestiona altres errors possibles
         print(f"Error en registrar el log: {e}")
     finally:
         # Tanca el cursor i la connexió amb la base de dades
-        if cursor is not None:
-            cursor.close()
-        if db is not None:
-            db.close()
+        cursor.close()
+        db.close()
 
 @app.route('/procesar_datos', methods=['POST'])
 def procesar_datos():
     numero_rfid = request.form.get('numero_rfid', '')
-    try:
-        if not re.match("^\d+$", numero_rfid):
-            registrar_log(numero_rfid, False)  # Registra un log per un accés denegat a causa d'un format invàlid del número RFID
-            return jsonify(False)
+    acceso_concedido = False  # Suposem inicialment que l'accés serà denegat
+    if not re.match("^\d+$", numero_rfid):
+        # Si el format no és vàlid, enregistra el intent com a fallit i respon
+        registrar_log(numero_rfid, acceso_concedido)
+        return jsonify(acceso_concedido)
 
+    try:
         # Estableix la connexió amb la base de dades
         db = mysql.connector.connect(
             host="*",
@@ -51,28 +50,23 @@ def procesar_datos():
             database="*"
         )
         cursor = db.cursor()
-        # Modifica la consulta per incloure la verificació de l'estat de la targeta
         cursor.execute("SELECT Estat FROM targeta WHERE num_targeta = %s", (numero_rfid,))
-        resultat = cursor.fetchone()
+        resultado = cursor.fetchone()
 
-        if resultat and resultat[0] == 1:
-            registrar_log(numero_rfid, True)  # Registra un log per un accés concedit
-            resultat = True
-        else:
-            registrar_log(numero_rfid, False)  # Registra un log per un accés denegat perquè la targeta està inactiva o no es va trobar
-            resultat = False
+        # Si troba la targeta i el seu estat és actiu, concedeix l'accés
+        if resultado and resultado[0] == 1:
+            acceso_concedido = True
 
     except Exception as e:
-        registrar_log(numero_rfid, False)  # Registra un log per un accés denegat en cas d'error
-        resultat = False
+        # Gestiona els errors possibles en el processament de les dades
+        print(f"Error en processar les dades: {e}")
     finally:
-        # Tanca el cursor i la connexió amb la base de dades
-        if cursor is not None:
-            cursor.close()
-        if db is not None:
-            db.close()
+        # Registra l'intent amb el resultat final i tanca els recursos de la BD
+        registrar_log(numero_rfid, acceso_concedido)
+        cursor.close()
+        db.close()
 
-    return jsonify(resultat)
+    return jsonify(acceso_concedido)
 
 if __name__ == '__main__':
     # Inicia l'aplicació Flask i escolta a totes les adreces disponibles a través del port 5000
