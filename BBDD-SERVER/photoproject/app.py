@@ -13,10 +13,10 @@ load_dotenv('/home/ubuntu/secure_card/bbdd_claves.env')
 app = Flask(__name__)  # Crea una instància de l'aplicació Flask
 
 # Defineix les variables d'entorn per a la connexió a la base de dades i al xifrat
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_USER = os.getenv('DB_USER', 'LQH')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'projecte.itb')
-DB_DATABASE = os.getenv('DB_DATABASE', 'beta')
+DB_HOST = os.getenv('DB_HOST', '**')
+DB_USER = os.getenv('DB_USER', '**')
+DB_PASSWORD = os.getenv('DB_PASSWORD', '**')
+DB_DATABASE = os.getenv('DB_DATABASE', '**')
 FERNET_KEY = os.getenv('FERNET_KEY')
 
 # Defineix els directoris i rutes de fitxers fixes per a l'execució
